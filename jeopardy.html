@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Pickleball Jeopardy</title>
+  <style>
+    .container {
+      text-align: center;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    .board {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 5px;
+    }
+    .header, .cell {
+      border: 2px solid #000;
+      padding: 15px;
+      font-weight: bold;
+      cursor: pointer;
+      background-color: cornflowerblue;
+      color: white;
+    }
+    .header {
+      background-color: #333;
+      cursor: default;
+    }
+    .cell.used {
+      background-color: #999;
+      cursor: default;
+    }
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .modal.hidden {
+      display: none;
+    }
+    .modal-content {
+      background: white;
+      padding: 20px;
+      max-width: 400px;
+      text-align: center;
+    }
+    .score {
+      font-size: 1.5rem;
+      margin: 10px 0;
+    }
+    .answer-input {
+      margin: 10px 0;
+      width: 80%;
+      padding: 8px;
+      font-size: 1rem;
+    }
+    button {
+      margin: 5px;
+      padding: 8px 16px;
+      font-size: 1rem;
+    }
+    #feedback {
+      margin-top: 10px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Pickleball Jeopardy</h1>
+    <div class="score">Score: <span id="score">0</span></div>
+    <div class="board" id="board"></div>
+
+    <div id="question-modal" class="modal hidden">
+      <div class="modal-content">
+        <p id="question-text"></p>
+        <input type="text" id="answer-input" class="answer-input" placeholder="Type your answer here" autocomplete="off" />
+        <div>
+          <button id="submit-btn">Submit Answer</button>
+          <button id="close-btn">Close</button>
+        </div>
+        <p id="feedback"></p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const categories = ["Rules", "History", "Techniques", "Equipment", "Fun Facts"];
+
+    const questions = {
+      Rules: [
+        "What is the double bounce rule?",
+        "Can you volley in the kitchen?",
+        "How many points to win a game?",
+        "What is a fault in pickleball?",
+        "How do you serve in pickleball?"
+      ],
+      History: [
+        "When was pickleball invented?",
+        "Where did pickleball originate?",
+        "Who were the inventors of pickleball?",
+        "What was pickleball named after?",
+        "How has the game evolved over time?"
+      ],
+      Techniques: [
+        "What is a dink shot?",
+        "How to perform a third shot drop?",
+        "What is a drive shot?",
+        "How do you block at the net?",
+        "What is stacking in doubles?"
+      ],
+      Equipment: [
+        "What is a pickleball paddle made of?",
+        "How is a pickleball different from a wiffle ball?",
+        "What kind of shoes are best for pickleball?",
+        "What are the official court dimensions?",
+        "How should you grip the paddle?"
+      ],
+      "Fun Facts": [
+        "What animals inspired the name 'pickleball'?",
+        "What is the fastest growing sport in the US?",
+        "How many people play pickleball today?",
+        "What’s a funny fact about the first pickleball paddle?",
+        "What’s unique about pickleball scoring?"
+      ]
+    };
+
+    // Accepted correct answers (can be adjusted for flexibility)
+    const correctAnswers = {
+      Rules: [
+        "the ball must bounce once on each side before volleying",
+        "yes",
+        "11",
+        "breaking a rule or fault",
+        "underhand"
+      ],
+      History: [
+        "1965",
+        "washington state",
+        "joel pritchard and others",
+        "named after a dog named pickle",
+        "grown in popularity and rules refined"
+      ],
+      Techniques: [
+        "soft shot near the net",
+        "soft shot after serve to control play",
+        "fast, hard shot",
+        "position yourself close to the net to block",
+        "players switch sides to confuse opponents"
+      ],
+      Equipment: [
+        "wood or composite materials",
+        "pickleball has smaller holes and is heavier",
+        "court shoes with good grip",
+        "20 by 44 feet",
+        "continental grip"
+      ],
+      "Fun Facts": [
+        "a dog named pickle",
+        "pickleball",
+        "millions worldwide",
+        "first paddle was a table tennis paddle",
+        "only the serving team can score"
+      ]
+    };
+
+    const board = document.getElementById("board");
+    const modal = document.getElementById("question-modal");
+    const questionText = document.getElementById("question-text");
+    const answerInput = document.getElementById("answer-input");
+    const submitBtn = document.getElementById("submit-btn");
+    const closeBtn = document.getElementById("close-btn");
+    const feedback = document.getElementById("feedback");
+    const scoreDisplay = document.getElementById("score");
+
+    let score = 0;
+    let currentCellValue = 0;
+    let currentCategory = "";
+    let currentQuestionIndex = 0;
+    let currentCell;
+
+    function createBoard() {
+      // Headers
+      categories.forEach(category => {
+        const header = document.createElement("div");
+        header.classList.add("header");
+        header.textContent = category;
+        board.appendChild(header);
+      });
+
+      // Question Cells
+      for (let i = 0; i < 5; i++) {
+        categories.forEach(category => {
+          const cell = document.createElement("div");
+          const value = (i + 1) * 100;
+          cell.classList.add("cell");
+          cell.textContent = value;
+          cell.addEventListener("click", () => showQuestion(cell, category, i, value));
+          board.appendChild(cell);
+        });
+      }
+    }
+
+    function showQuestion(cell, category, index, value) {
+      if (cell.classList.contains("used")) return;
+
+      currentCategory = category;
+      currentQuestionIndex = index;
+      currentCellValue = value;
+      currentCell = cell;
+
+      questionText.textContent = questions[category][index];
+      answerInput.value = "";
+      feedback.textContent = "";
+      modal.classList.remove("hidden");
+      answerInput.focus();
+
+      // Mark cell used immediately to prevent double-click abuse
+      cell.classList.add("used");
+    }
+
+    function checkAnswer() {
+      const userAnswer = answerInput.value.trim().toLowerCase();
+      const correctAnswer = correctAnswers[currentCategory][currentQuestionIndex].toLowerCase();
+
+      if (!userAnswer) {
+        feedback.textContent = "Please enter an answer.";
+        feedback.style.color = "red";
+        return;
+      }
+
+      // Simple exact match check; could be improved with synonyms, partial matches, etc.
+      if (userAnswer === correctAnswer) {
+        score += currentCellValue;
+        feedback.textContent = "Correct!";
+        feedback.style.color = "green";
+      } else {
+        score -= currentCellValue;
+        feedback.textContent = `Incorrect! Correct answer: "${correctAnswers[currentCategory][currentQuestionIndex]}"`;
+        feedback.style.color = "red";
+      }
+      updateScore();
+
+      // Disable submit to prevent multiple submissions
+      submitBtn.disabled = true;
+      answerInput.disabled = true;
+    }
+
+    function closeModal() {
+      modal.classList.add("hidden");
+      submitBtn.disabled = false;
+      answerInput.disabled = false;
+      feedback.textContent = "";
+    }
+
+    function updateScore() {
+      scoreDisplay.textContent = score;
+    }
+
+    submitBtn.addEventListener("click", checkAnswer);
+    closeBtn.addEventListener("click", closeModal);
+    answerInput.addEventListener("keypress", e => {
+      if (e.key === "Enter") checkAnswer();
+    });
+
+    createBoard();
+  </script>
+  
+</body>
+</html>
